@@ -8,11 +8,7 @@
             [cljs-uuid-utils.core :as uuid]
             [clojure.walk :as walk]))
 
-;; -------------------------
-;; Views
-
-(defonce state (reagent/atom {:events []}))
-(defonce counter (reagent/atom 3))
+(defonce state (reagent/atom {:events [] :user-name nil}))
 
 (defn concat-events [current events]
   (into [] (concat current events)))
@@ -27,6 +23,11 @@
   (.log js/console state)
   "")
 
+(defn set-user-name [user-name]
+  (swap! state assoc :user-name user-name)
+  (.log js/console state)
+  "")
+
 (defn log-item []
   (fn [{:keys [id tag text]}]
       [:div id " " tag " " text]
@@ -38,24 +39,38 @@
      ^{:key message} [log-item message])])
 
 (defn get-room []
-      (let [room (-> js/window .-location .-href url/url :query walk/keywordize-keys :room)]
-      (if (nil? room) (uuid/uuid-string (uuid/make-random-uuid)) room)))
+      (let [room (-> js/window .-location .-href url/url :query walk/keywordize-keys :room)
+            id (uuid/uuid-string (uuid/make-random-uuid))]
+        (if (nil? room) (accountant/navigate! (str "?room=" id)))
+        (if (nil? room) id room)))
 
-(defn home-page []
+(defn chat []
   (let [message (reagent/atom "")
         room (get-room)]
-
-     (GET "http://www.mocky.io/v2/580375512400003007135c0c" {:handler load :response-format :json :keywords? true})
-     (.log js/console room )
-     (fn []
-        [:div [:h2 "Welcome to chat"]
-        [chat-log]
-        [:input {:type "text"
+    ;580375512400003007135c0c
+    (GET (str "http://www.mocky.io/v2/" room) {:handler load :response-format :json :keywords? true})
+    (fn []
+      [:div [:h2 (:user-name @state) ", welcome to chat"]
+       [chat-log]
+       [:input {:type "text"
                 :value @message
                 :required ""
                 :on-change #(reset! message (-> % .-target .-value))}]
-        [:button {:on-click #(swap! message send)} "Send"]])))
+       [:button {:on-click #(swap! message send)} "Send"]])))
 
+(defn login []
+  (let [user-name (reagent/atom "")]
+
+    (fn []
+      [:div [:h2 "Please, enter your name:"]
+       [:input {:type "text"
+                :value @user-name
+                :required ""
+                :on-change #(reset! user-name (-> % .-target .-value))}]
+       [:button {:on-click #(swap! user-name set-user-name)} "Enter"]])))
+
+(defn home-page []
+  [(if (nil? (:user-name @state)) login chat)])
 
 
 (defn current-page []
