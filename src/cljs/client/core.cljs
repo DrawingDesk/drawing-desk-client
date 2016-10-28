@@ -6,26 +6,32 @@
             [cemerick.url :as url]
             [accountant.core :as accountant]
             [cljs-uuid-utils.core :as uuid]
+            [eval.core :as e]
             [clojure.walk :as walk]))
 
-(defonce state (reagent/atom {:events [] :user-name nil}))
+(defonce state (reagent/atom {:events [] :user-name nil :chat-log []}))
 
 (defn concat-events [current events]
   (into [] (concat current events)))
 
+(defn resolve-event [event]
+  (e/invoke (str "client.core/" (:method event)) (:args event) (:id event) (:tag event)))
+
 (defn load [events]
-  (.log js/console events)
-  (swap! state update-in [:events] concat-events events)
-  (.log js/console state))
+  (mapv resolve-event events)
+  (swap! state update-in [:events] concat-events events))
 
 (defn send [message]
-  (swap! state update-in [:events] conj {:id nil :tag (uuid/uuid-string (uuid/make-random-uuid)) :text message})
-  (.log js/console state)
-  "")
+  (let [event {:id nil :tag (uuid/uuid-string (uuid/make-random-uuid)) :method "show-message" :args {:text message}}]
+    (resolve-event event)
+    (swap! state update-in [:events] conj event)
+    ""))
+
+(defn ^:export show-message [args id tag]
+  (swap! state update-in [:chat-log] conj {:id id :tag tag :text (:text args)}))
 
 (defn set-user-name [user-name]
   (swap! state assoc :user-name user-name)
-  (.log js/console state)
   "")
 
 (defn log-item []
@@ -35,7 +41,7 @@
 
 (defn chat-log []
   [:div "Chat log:"
-   (for [message (:events @state)]
+   (for [message (:chat-log @state)]
      ^{:key message} [log-item message])])
 
 (defn get-room []
@@ -48,6 +54,7 @@
   (let [message (reagent/atom "")
         room (get-room)]
     ;580375512400003007135c0c
+    ;58131b851000006603abaf41
     (GET (str "http://www.mocky.io/v2/" room) {:handler load :response-format :json :keywords? true})
     (fn []
       [:div [:h2 (:user-name @state) ", welcome to chat"]
