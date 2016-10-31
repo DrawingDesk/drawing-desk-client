@@ -9,34 +9,34 @@
             [eval.core :as e]
             [clojure.walk :as walk]))
 
-(defonce state (reagent/atom {:events [] :user-name nil :chat-log []}))
+(defonce state (reagent/atom {:events [] :user nil :chat-log []}))
 
 (defn concat-events [current events]
   (into [] (concat current events)))
 
 (defn resolve-event [event]
-  (e/invoke (str "client.core/" (:method event)) (:args event) (:id event) (:tag event)))
+  (e/invoke (str "client.core/" (:method event)) (:args event) (:id event) (:user event)(:tag event)))
 
 (defn load [events]
   (mapv resolve-event events)
   (swap! state update-in [:events] concat-events events))
 
-(defn send [message]
-  (let [event {:id nil :tag (uuid/uuid-string (uuid/make-random-uuid)) :method "show-message" :args {:text message}}]
+(defn send-message [message]
+  (let [event {:id nil :tag (uuid/uuid-string (uuid/make-random-uuid)) :method "show-message" :user (:user @state) :args {:text message}}]
     (resolve-event event)
     (swap! state update-in [:events] conj event)
     ""))
 
-(defn ^:export show-message [args id tag]
-  (swap! state update-in [:chat-log] conj {:id id :tag tag :text (:text args)}))
+(defn ^:export show-message [args id user tag]
+  (swap! state update-in [:chat-log] conj {:id id :tag tag :user user :text (:text args)}))
 
-(defn set-user-name [user-name]
-  (swap! state assoc :user-name user-name)
+(defn set-user [user]
+  (swap! state assoc :user user)
   "")
 
 (defn log-item []
-  (fn [{:keys [id tag text]}]
-      [:div id " " tag " " text]
+  (fn [{:keys [id tag text user]}]
+      [:div user ": " text " (" id " " tag ") "]
     ))
 
 (defn chat-log []
@@ -53,31 +53,29 @@
 (defn chat []
   (let [message (reagent/atom "")
         room (get-room)]
-    ;580375512400003007135c0c
-    ;58131b851000006603abaf41
-    (GET (str "http://www.mocky.io/v2/" room) {:handler load :response-format :json :keywords? true})
+    (GET (str "http://lively-firefly-3821.getsandbox.com/events/" room) {:handler load :response-format :json :keywords? true})
     (fn []
-      [:div [:h2 (:user-name @state) ", welcome to chat"]
+      [:div [:h2 (:user @state) ", welcome to chat"]
        [chat-log]
        [:input {:type "text"
                 :value @message
                 :required ""
                 :on-change #(reset! message (-> % .-target .-value))}]
-       [:button {:on-click #(swap! message send)} "Send"]])))
+       [:button {:on-click #(swap! message send-message)} "Send"]])))
 
 (defn login []
-  (let [user-name (reagent/atom "")]
+  (let [user (reagent/atom "")]
 
     (fn []
       [:div [:h2 "Please, enter your name:"]
        [:input {:type "text"
-                :value @user-name
+                :value @user
                 :required ""
-                :on-change #(reset! user-name (-> % .-target .-value))}]
-       [:button {:on-click #(swap! user-name set-user-name)} "Enter"]])))
+                :on-change #(reset! user (-> % .-target .-value))}]
+       [:button {:on-click #(swap! user set-user)} "Enter"]])))
 
 (defn home-page []
-  [(if (nil? (:user-name @state)) login chat)])
+  [(if (nil? (:user @state)) login chat)])
 
 
 (defn current-page []
