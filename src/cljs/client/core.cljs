@@ -9,7 +9,11 @@
             [eval.core :as e]
             [clojure.walk :as walk]))
 
-(defonce state (reagent/atom {:events [] :user nil :room nil :sync nil :chat-log []}))
+(defn not-in?
+  [coll elm]
+  (some #(not= (:tag elm) (:tag %)) coll))
+
+(defonce state (reagent/atom {:events [] :outgoing [] :server-state {:chat-log []} :client-state {:chat-log []} :user nil :room nil :sync nil}))
 
 (defn concat-events [current events]
   (into [] (concat current events)))
@@ -19,9 +23,15 @@
 
 (defn resolve-events [events]
   (let [last (last events)]
-    (mapv resolve-event events)
-    (swap! state update-in [:events] concat-events events)
-    (if (some? last) (swap! state assoc :sync (:id last)))))
+    (if (some? last)
+      (do
+        (swap! state assoc :outgoing (into [] (filter (fn [outgoing] (not-in? events outgoing)) (:outgoing @state))))
+
+        (swap! state update-in [:events] concat-events events)
+        (swap! state assoc :client-state (:server-state @state))
+        (mapv resolve-event events)
+        (mapv resolve-event (:outgoing @state))
+        (swap! state assoc :sync (:id last))))))
 
 (defn init [events]
   (resolve-events events)
@@ -30,11 +40,13 @@
 (defn send-message [message]
   (let [event {:id nil :tag (uuid/uuid-string (uuid/make-random-uuid)) :method "show-message" :user (:user @state) :args {:text message}}]
     (resolve-event event)
-    (swap! state update-in [:events] conj event)
+    (swap! state update-in [:outgoing] conj event)
     ""))
 
 (defn ^:export show-message [args id user tag]
-  (swap! state update-in [:chat-log] conj {:id id :tag tag :user user :text (:text args)}))
+  (if (some? id)
+    (swap! state update-in [:server-state] update-in [:chat-log] conj {:id id :tag tag :user user :text (:text args)}))
+  (swap! state update-in [:client-state] update-in [:chat-log] conj {:id id :tag tag :user user :text (:text args)}))
 
 (defn set-user [user]
   (swap! state assoc :user user)
@@ -47,7 +59,7 @@
 
 (defn chat-log []
   [:div "Chat log:"
-   (for [message (:chat-log @state)]
+   (for [message (:chat-log (:client-state @state))]
      ^{:key message} [log-item message])])
 
 (defn set-room []
