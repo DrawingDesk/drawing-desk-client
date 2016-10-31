@@ -9,7 +9,7 @@
             [eval.core :as e]
             [clojure.walk :as walk]))
 
-(defonce state (reagent/atom {:events [] :user nil :chat-log []}))
+(defonce state (reagent/atom {:events [] :user nil :room nil :sync nil :chat-log []}))
 
 (defn concat-events [current events]
   (into [] (concat current events)))
@@ -17,9 +17,14 @@
 (defn resolve-event [event]
   (e/invoke (str "client.core/" (:method event)) (:args event) (:id event) (:user event)(:tag event)))
 
-(defn load [events]
+(defn resolve-events [events]
   (mapv resolve-event events)
-  (swap! state update-in [:events] concat-events events))
+  (swap! state update-in [:events] concat-events events)
+  (swap! state assoc :sync (:id (last events))))
+
+(defn init [events]
+  (resolve-events events)
+  (js/setTimeout #(GET (str "http://lively-firefly-3821.getsandbox.com/events/" (:room @state) "?sync=" (:sync @state)) {:handler init :response-format :json :keywords? true}) 3000))
 
 (defn send-message [message]
   (let [event {:id nil :tag (uuid/uuid-string (uuid/make-random-uuid)) :method "show-message" :user (:user @state) :args {:text message}}]
@@ -44,16 +49,16 @@
    (for [message (:chat-log @state)]
      ^{:key message} [log-item message])])
 
-(defn get-room []
+(defn set-room []
       (let [room (-> js/window .-location .-href url/url :query walk/keywordize-keys :room)
             id (uuid/uuid-string (uuid/make-random-uuid))]
         (if (nil? room) (accountant/navigate! (str "?room=" id)))
-        (if (nil? room) id room)))
+        (if (nil? room) (swap! state assoc :room id) (swap! state assoc :room room))))
 
 (defn chat []
-  (let [message (reagent/atom "")
-        room (get-room)]
-    (GET (str "http://lively-firefly-3821.getsandbox.com/events/" room) {:handler load :response-format :json :keywords? true})
+  (let [message (reagent/atom "")]
+    (set-room)
+    (GET (str "http://lively-firefly-3821.getsandbox.com/events/" (:room @state)) {:handler init :response-format :json :keywords? true})
     (fn []
       [:div [:h2 (:user @state) ", welcome to chat"]
        [chat-log]
