@@ -18,13 +18,14 @@
   (e/invoke (str "client.core/" (:method event)) (:args event) (:id event) (:user event)(:tag event)))
 
 (defn resolve-events [events]
-  (mapv resolve-event events)
-  (swap! state update-in [:events] concat-events events)
-  (swap! state assoc :sync (:id (last events))))
+  (let [last (last events)]
+    (mapv resolve-event events)
+    (swap! state update-in [:events] concat-events events)
+    (if (some? last) (swap! state assoc :sync (:id last)))))
 
 (defn init [events]
   (resolve-events events)
-  (js/setTimeout #(GET (str "http://lively-firefly-3821.getsandbox.com/events/" (:room @state) "?sync=" (:sync @state)) {:handler init :response-format :json :keywords? true}) 3000))
+  (js/setInterval #(GET (str "http://lively-firefly-3821.getsandbox.com/events/" (:room @state) "?sync=" (:sync @state)) {:handler resolve-events :response-format :json :keywords? true}) 3000))
 
 (defn send-message [message]
   (let [event {:id nil :tag (uuid/uuid-string (uuid/make-random-uuid)) :method "show-message" :user (:user @state) :args {:text message}}]
