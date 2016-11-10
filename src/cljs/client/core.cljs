@@ -19,7 +19,7 @@
   (into [] (concat current events)))
 
 (defn resolve-event [event]
-  (e/invoke (str "client.core/" (:method event)) (:args event) (:id event) (:user event)(:tag event)))
+  (e/invoke (str "client.core/" (:method event)) (:args event) (:id event) (:user event) (:tag event)))
 
 (defn resolve-events [events]
   (let [last (last events)]
@@ -39,6 +39,7 @@
 
 (defn send-message [message]
   (let [event {:id nil :tag (uuid/uuid-string (uuid/make-random-uuid)) :method "show-message" :user (:user @state) :args {:text message}}]
+    (POST (str "http://www.mocky.io/v2/5824a8811200007e1893c5b2/" (:room @state)) {:params event :format :json :response-format :json :keywords? true})
     (resolve-event event)
     (swap! state update-in [:outgoing] conj event)
     ""))
@@ -52,15 +53,10 @@
   (swap! state assoc :user user)
   "")
 
-(defn log-item []
-  (fn [{:keys [id tag text user]}]
-      [:div user ": " text " (" id " " tag ") "]
-    ))
-
 (defn chat-log []
   [:div "Chat log:"
    (for [message (:chat-log (:client-state @state))]
-     ^{:key message} [log-item message])])
+     ^{:key message} [:div (:user message) ": " (:text message) " (" (:id message) " " (:tag message) ") "])])
 
 (defn set-room []
       (let [room (-> js/window .-location .-href url/url :query walk/keywordize-keys :room)
@@ -74,7 +70,7 @@
     (GET (str "http://lively-firefly-3821.getsandbox.com/events/" (:room @state)) {:handler init :response-format :json :keywords? true})
     (fn []
       [:div [:h2 (:user @state) ", welcome to chat"]
-       [chat-log]
+       (chat-log)
        [:input {:type "text"
                 :value @message
                 :required ""
@@ -104,7 +100,6 @@
 
 (secretary/defroute "/" []
   (session/put! :current-page #'home-page))
-
 
 ;; -------------------------
 ;; Initialize app
