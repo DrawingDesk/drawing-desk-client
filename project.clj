@@ -18,6 +18,8 @@
                   :scope "provided"]
                  [secretary "1.2.3"]
                  [cljs-ajax "0.5.8"]
+                 [happy "0.5.2"]
+                 [funcool/httpurr "0.6.1"]
                  [com.cemerick/url "0.1.1"]
                  [com.lucasbradstreet/cljs-uuid-utils "1.0.2"]
                  [venantius/accountant "0.1.7"
@@ -42,7 +44,7 @@
    [:cljsbuild :builds :app :compiler :output-dir]
    [:cljsbuild :builds :app :compiler :output-to]]
 
-  :source-paths ["src/clj" "src/cljc"]
+  :source-paths ["src/clj"]
   :resource-paths ["resources" "target/cljsbuild"]
 
   :minify-assets
@@ -51,14 +53,14 @@
 
   :cljsbuild
   {:builds {:min
-            {:source-paths ["src/cljs" "src/cljc" "env/prod/cljs"]
+            {:source-paths ["src/cljs" "env/prod/cljs"]
              :compiler
              {:output-to "target/cljsbuild/public/js/app.js"
               :output-dir "target/uberjar"
               :optimizations :advanced
               :pretty-print  false}}
             :app
-            {:source-paths ["src/cljs" "src/cljc" "env/dev/cljs"]
+            {:source-paths ["src/cljs" "env/dev/cljs"]
              :compiler
              {:main "client.dev"
               :asset-path "/js/out"
@@ -67,9 +69,6 @@
               :source-map true
               :optimizations :none
               :pretty-print  true}}
-
-
-
             }
    }
 

@@ -3,6 +3,7 @@
             [reagent.session :as session]
             [secretary.core :as secretary :include-macros true]
             [ajax.core :refer [GET POST]]
+            [utils.routes :as routes]
             [cemerick.url :as url]
             [accountant.core :as accountant]
             [cljs-uuid-utils.core :as uuid]
@@ -13,7 +14,7 @@
   [coll elm]
   (some #(not= (:tag elm) (:tag %)) coll))
 
-(defonce state (reagent/atom {:events [] :outgoing [] :server-state {:chat-log []} :client-state {:chat-log []} :user nil :room nil :sync nil}))
+(defonce state (reagent/atom {:events [] :outgoing [] :server-state {:chat-log []} :client-state {:chat-log []} :user nil :room nil :sync 0}))
 
 (defn concat-events [current events]
   (into [] (concat current events)))
@@ -31,15 +32,15 @@
         (swap! state assoc :client-state (:server-state @state))
         (mapv resolve-event events)
         (mapv resolve-event (:outgoing @state))
-        (swap! state assoc :sync (:id last))))))
+        (swap! state assoc :sync (:sync-id last))))))
 
 (defn init [events]
   (resolve-events events)
-  (js/setInterval #(GET (str "http://lively-firefly-3821.getsandbox.com/events/" (:room @state) "?sync=" (:sync @state)) {:handler resolve-events :response-format :json :keywords? true}) 3000))
+  (js/setInterval (GET (routes/get-events-url (:room @state) (:sync @state)) {:handler resolve-events :response-format :json :keywords? true}) 3000))
 
 (defn send-message [message]
   (let [event {:id nil :tag (uuid/uuid-string (uuid/make-random-uuid)) :method "show-message" :user (:user @state) :args {:text message}}]
-    (POST (str "http://www.mocky.io/v2/5824a8811200007e1893c5b2/" (:room @state)) {:params event :format :json :response-format :json :keywords? true})
+    (POST (routes/post-event-url (:room @state)) {:params event :format :json :response-format :json :keywords? true})
     (resolve-event event)
     (swap! state update-in [:outgoing] conj event)
     ""))
@@ -67,7 +68,7 @@
 (defn chat []
   (let [message (reagent/atom "")]
     (set-room)
-    (GET (str "http://lively-firefly-3821.getsandbox.com/events/" (:room @state)) {:handler init :response-format :json :keywords? true})
+    (GET (routes/get-events-url (:room @state)) {:handler init :response-format :json :keywords? true})
     (fn []
       [:div [:h2 (:user @state) ", welcome to chat"]
        (chat-log)
