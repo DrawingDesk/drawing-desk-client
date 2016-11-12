@@ -87,9 +87,6 @@
   (swap! canvas assoc :draw false)
   (save))
 
-(defn out []
-  (swap! canvas assoc :draw false))
-
 (defn desk-init []
   (let [canvas-element (.getElementById js/document "desk")
         ctx (.getContext canvas-element "2d")]
@@ -99,7 +96,7 @@
     (.addEventListener canvas-element "mousemove" move)
     (.addEventListener canvas-element "mousedown" down)
     (.addEventListener canvas-element "mouseup" up)
-    (.addEventListener canvas-element "mouseout" out)))
+    (.addEventListener canvas-element "mouseout" up)))
 
 (defn init [events]
   (desk-init)
