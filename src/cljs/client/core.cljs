@@ -20,7 +20,7 @@
   (into [] (concat current events)))
 
 (defn resolve-event [event]
-  (e/invoke (str "client.core/" (:method event)) (:args event) (:id event) (:user event) (:tag event)))
+  (e/invoke (str "client.core/" (:method event)) (:args event) (:sync-id event) (:user event) (:tag event)))
 
 (defn resolve-events [events]
   (let [last (last events)]
@@ -36,7 +36,7 @@
 
 (defn init [events]
   (resolve-events events)
-  (js/setInterval (GET (routes/get-events-url (:room @state) (:sync @state)) {:handler resolve-events :response-format :json :keywords? true}) 3000))
+  (js/setInterval #(GET (routes/get-events-url (:room @state) (:sync @state)) {:handler resolve-events :response-format :json :keywords? true}) 3000))
 
 (defn send-message [message]
   (let [event {:id nil :tag (uuid/uuid-string (uuid/make-random-uuid)) :method "show-message" :user (:user @state) :args {:text message}}]

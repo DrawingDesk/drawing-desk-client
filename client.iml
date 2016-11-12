@@ -11,7 +11,6 @@
       <sourceFolder url="file://$MODULE_DIR$/env/prod/cljs" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/dev-resources" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/clj" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/cljc" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/env/dev/clj" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/test" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
@@ -57,6 +56,9 @@
     <orderEntry type="library" name="Leiningen: crypto-random:1.2.0" level="project" />
     <orderEntry type="library" name="Leiningen: figwheel-sidecar:0.5.7" level="project" />
     <orderEntry type="library" name="Leiningen: figwheel:0.5.7" level="project" />
+    <orderEntry type="library" name="Leiningen: funcool/httpurr:0.6.1" level="project" />
+    <orderEntry type="library" name="Leiningen: funcool/promesa:1.4.0" level="project" />
+    <orderEntry type="library" name="Leiningen: happy:0.5.2" level="project" />
     <orderEntry type="library" name="Leiningen: hawk:0.2.10" level="project" />
     <orderEntry type="library" name="Leiningen: hiccup:1.0.5" level="project" />
     <orderEntry type="library" name="Leiningen: http-kit:2.2.0" level="project" />
