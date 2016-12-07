@@ -12,3 +12,6 @@
 
 (defn post-event-url [room-id]
   (str api-events-url room-id))
+
+(defn patch-event-url [room-id event-id]
+  (str api-events-url room-id "/" event-id))
