@@ -13,7 +13,7 @@
             [clojure.walk :as walk]))
 
 (defonce state (reagent/atom {:events [] :outgoing [] :server-state {:chat-log []} :client-state {:chat-log []} :user nil :room nil :sync 0 :draw-type :pencil}))
-(defonce canvas (reagent/atom {:element nil :ctx nil :actions [] :draw false :position {:prev {:x 0 :y 0} :curr {:x 0 :y 0}}}))
+(defonce canvas (reagent/atom {:ctx nil :actions [] :draw false :position {:prev {:x 0 :y 0} :curr {:x 0 :y 0} :start {:x 0 :y 0}}}))
 
 (defn not-in?
   [coll elm]
@@ -23,18 +23,24 @@
   (into [] (concat current events)))
 
 (defn resolve-event [event]
-  (e/invoke (str "client.core/" (:method event)) (:args event) (:sync-id event) (:user event) (:tag event)))
+  (if (not (:disabled event)) (e/invoke (str "client.core/" (:method event)) (:args event) (:sync-id event) (:user event) (:tag event))))
+
+(defn update-events [events]
+  (let [updated (into [] (filter (fn [event] (= (:method event) "update-event")) events))]
+    (mapv resolve-event updated)))
 
 (defn resolve-events [events]
-  (let [last (last events)]
+  (let [last (last events)
+        filtered (into [] (filter (fn [event] (not= (:method event) "update-event")) events))]
     (if (some? last)
       (do
+        (update-events events)
         ;TODO: fix error when outgoing is array
-        (swap! state assoc :outgoing (into [] (filter (fn [outgoing] (not-in? events outgoing)) (:outgoing @state))))
-        (swap! state update-in [:events] concat-events events)
+        (swap! state assoc :outgoing (into [] (filter (fn [outgoing] (not-in? filtered outgoing)) (:outgoing @state))))
+        (swap! state update-in [:events] concat-events filtered)
         (swap! state assoc :client-state (:server-state @state))
         (.putImageData (:ctx @canvas) (-> @state :server-state :canvas) 0 0)
-        (mapv resolve-event events)
+        (mapv resolve-event filtered)
         (mapv resolve-event (:outgoing @state))
         (swap! state assoc :sync (:sync-id last))))))
 
@@ -80,8 +86,8 @@
                                                    :y (-> @canvas :position :curr :y)
                                                     })
   (swap! canvas update-in [:position] assoc :curr {
-                                                   :x (- (.-clientX e) (-> @canvas :element .-offsetLeft))
-                                                   :y (- (.-clientY e) (-> @canvas :element .-offsetTop))
+                                                   :x (.-offsetX e)
+                                                   :y (.-offsetY e)
                                                     }))
 
 (defn movePencil []
@@ -110,14 +116,10 @@
 (defn down [e]
   (updatePosition e)
   (swap! canvas update-in [:position] assoc :start {
-                                                    :x (- (.-clientX e) (-> @canvas :element .-offsetLeft))
-                                                    :y (- (.-clientY e) (-> @canvas :element .-offsetTop))
+                                                    :x (.-offsetX e)
+                                                    :y (.-offsetY e)
                                                     })
   (swap! canvas assoc :draw true)
-  ;(-> @canvas :ctx .beginPath)
-  ;(set! (. :ctx -fillStyle) (str "rgb(" r "," g "," b ")"))
-  ;(.fillRect (:ctx @canvas) (-> @canvas :position :curr :x) (-> @canvas :position :curr :y) 1 1)
-  ;(-> @canvas :ctx .closePath)
   )
 
 (defn up []
@@ -127,7 +129,6 @@
 (defn desk-init []
   (let [canvas-element (.getElementById js/document "desk")
         ctx (.getContext canvas-element "2d")]
-    (swap! canvas assoc :element canvas-element)
     (swap! canvas assoc :ctx ctx)
     (swap! state update-in [:server-state] assoc :canvas (.getImageData ctx 0 0 500 500))
     (swap! state update-in [:client-state] assoc :canvas (.getImageData ctx 0 0 500 500))
@@ -138,7 +139,7 @@
 
 (defn init [events]
   (desk-init)
-  (js/setInterval #(GET (routes/get-events-url (:room @state) (:sync @state)) {:handler resolve-events :response-format :json :keywords? true}) 3000)
+  (js/setInterval #(GET (routes/get-events-url (:room @state) (:sync @state)) {:handler resolve-events :response-format :json :keywords? true}) 500)
   (resolve-events events))
 
 (defn send-message [message]
@@ -171,6 +172,20 @@
   (if (some? id)
     (swap! state update-in [:server-state] assoc :canvas (.getImageData (:ctx @canvas) 0 0 500 500))))
 
+(defn ^:export update-event [args id]
+  (let [new-events (mapv (fn [item]
+                          (if (= (str (:sync-id item)) (:sync-id args))
+                            (assoc item :disabled (-> args :data :disabled))
+                            item)) (:events @state))]
+    (swap! state assoc :sync 0)
+    (swap! state assoc :events [])
+    (swap! state assoc :client-state {:chat-log []})
+    (swap! state assoc :server-state {:chat-log []})
+    (.clearRect (:ctx @canvas) 0 0 500 500)
+    (swap! state update-in [:server-state] assoc :canvas (.getImageData (:ctx @canvas) 0 0 500 500))
+    (swap! state update-in [:client-state] assoc :canvas (.getImageData (:ctx @canvas) 0 0 500 500))
+    (resolve-events new-events)))
+
 (defn set-user [user]
   (swap! state assoc :user user)
   "")
@@ -180,15 +195,16 @@
    (for [message (:chat-log (:client-state @state))]
      ^{:key message} [:div (:user message) ": " (:text message) " (" (:sync-id message) " " (:tag message) ") "])])
 
-(defn desk-component []
-  [:div {:class "desk-container"} [:h3 "Drawing-desk:"]
-   [:canvas {:width 500 :height 500 :id "desk"}]])
-
 (def menu-component
   [:div {:class "menu-container"}
-     [:label [:input.radio {:field :radio :value :pencil :name :draw-type :checked true}] "Pencil"]
-     [:label [:input.radio {:field :radio :value :line :name :draw-type}] "Line"]
-     [:label [:input.radio {:field :radio :value :rectangle :name :draw-type}] "Rectangle"]])
+   [:label [:input.radio {:field :radio :value :pencil :name :draw-type :checked true}] "Pencil"]
+   [:label [:input.radio {:field :radio :value :line :name :draw-type}] "Line"]
+   [:label [:input.radio {:field :radio :value :rectangle :name :draw-type}] "Rectangle"]])
+
+(defn desk-component []
+  [:div {:class "desk-container"} [:h3 "Drawing desk:"]
+   [bind-fields menu-component state]
+   [:canvas {:width 500 :height 500 :id "desk"}]])
 
 (defn set-room []
   (let [room (-> js/window .-location .-href url/url :query walk/keywordize-keys :room)
@@ -207,17 +223,28 @@
                 :on-change #(reset! message (-> % .-target .-value))}]
        [:button {:on-click #(swap! message send-message)} "Send"]])))
 
+(defn toggle-event [sync-id]
+  (mapv (fn [item]
+     (if (= (:sync-id item) sync-id)
+       (POST (routes/patch-event-url (:room @state) sync-id) {:params {:disabled (not (:disabled item))} :format :json :response-format :json :keywords? true}))) (:events @state)))
+
+(defn events-item []
+  (fn [{:keys [sync-id user method args disabled]}]
+    [:li
+     [:div
+      [:label [:input {:type "checkbox" :checked (not disabled) :on-change #(toggle-event sync-id)}]
+       sync-id " " user ": " method " (" (subs (str args) 0 50) "...) "]]]))
+
 (defn events-component []
   [:div {:class "events-container"} [:h3 "Events list:"]
    (for [event (:events @state)]
-     ^{:key event} [:div (:sync-id event) " " (:user event) ": " (:method event) " (" (:args event) ") "])])
+     ^{:key event} [events-item event])])
 
 (defn index-page []
   (set-room)
   (GET (routes/get-events-url (:room @state)) {:handler init :response-format :json :keywords? true})
   (fn [] [:div [:h2 (:user @state) ", welcome to drawing desk"]
           [desk-component]
-          [bind-fields menu-component state]
           [chat-component]
           [events-component]]))
 
