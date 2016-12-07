@@ -16,3 +16,6 @@
 
 (defn get-sign-in-url []
   (str app-base-url "sign-in"))
+
+(defn patch-event-url [room-id event-id]
+  (str api-events-url room-id "/" event-id))
