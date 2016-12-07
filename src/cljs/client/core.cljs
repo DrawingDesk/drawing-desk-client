@@ -138,7 +138,7 @@
 
 (defn init [events]
   (desk-init)
-  (js/setInterval #(GET (routes/get-events-url (:room @state) (:sync @state)) {:handler resolve-events :response-format :json :keywords? true}) 3000)
+  (js/setInterval #(GET (routes/get-events-url (:room @state) (:sync @state)) {:handler resolve-events :response-format :json :keywords? true}) 500)
   (resolve-events events))
 
 (defn send-message [message]
