@@ -1,6 +1,7 @@
 (ns utils.routes)
 
-(def api-base-url "http://localhost:3000/api/")
+(def app-base-url "http://localhost:3000/")
+(def api-base-url (str app-base-url "api/"))
 
 (def api-events-url (str api-base-url "events/"))
 
@@ -12,3 +13,6 @@
 
 (defn post-event-url [room-id]
   (str api-events-url room-id))
+
+(defn get-sign-in-url []
+  (str app-base-url "sign-in"))

@@ -3,6 +3,7 @@
             [reagent-forms.core :refer [bind-fields]]
             [reagent.session :as session]
             [secretary.core :as secretary :include-macros true]
+            [utils.security]
             [ajax.core :refer [GET POST]]
             [utils.routes :as routes]
             [cemerick.url :as url]
@@ -231,7 +232,67 @@
        [:button {:on-click #(swap! user set-user)} "Enter"]])))
 
 (defn home-page []
-  [(if (nil? (:user @state)) login-page index-page)])
+  (if (nil? (:user @state))
+    ((secretary/dispatch! "/sign-in")
+      [:div])
+    (index-page)))
+
+
+(defn authorize-success [data]
+  (swap! state assoc :user "User")
+  (reset! utils.security/token (:token data))
+  (secretary/dispatch! "/"))
+
+(defn authorize-failed [data]
+  (js/alert "You enter wrong credentials"))
+
+(defn sign-in [user]
+  (POST (routes/get-sign-in-url) :params user :format :json :response-format :json :keywords? true :handler authorize-success))
+
+(defn sign-in-page []
+  (let [user (reagent/atom {:login "" :password ""})]
+    (fn []
+      [:div {:class "login-container"}
+       [:h2 "Sign in"]
+       [:div
+        [:label "Your login:"]
+        [:input {:type      "text"
+                 :value     (:login @user)
+                 :required  ""
+                 :on-change #(swap! user assoc :login (-> % .-target .-value))}]]
+       [:div
+        [:label "Your password:"]
+        [:input {:type "password"
+                 :value (:password @user)
+                 :required ""
+                 :on-change #(swap! user assoc :password (-> % .-target .-value))}]]
+       [:button {:on-click #(sign-in @user)} "Sign in"]
+       [:button {:on-click #(secretary/dispatch! "/sign-up")} "Sign up"]])))
+
+(defn sign-up-page []
+  (let [user (reagent/atom {:login "" :password ""})]
+    (fn []
+      [:div {:class "login-container"}
+       [:h2 "Sign in"]
+       [:div
+        [:label "Your name:"]
+        [:input {:type      "text"
+                 :value     (:name @user)
+                 :required  ""
+                 :on-change #(swap! user assoc :name (-> % .-target .-value))}]]
+       [:div
+        [:label "Your login:"]
+        [:input {:type      "text"
+                 :value     (:login @user)
+                 :required  ""
+                 :on-change #(swap! user assoc :login (-> % .-target .-value))}]]
+       [:div
+        [:label "Your password:"]
+        [:input {:type "password"
+                 :value (:password @user)
+                 :required ""
+                 :on-change #(swap! user assoc :password (-> % .-target .-value))}]]
+       [:button {:on-click #(sign-in @user)} "Sign up"]])))
 
 
 (defn current-page []
@@ -242,6 +303,10 @@
 
 (secretary/defroute "/" []
                     (session/put! :current-page #'home-page))
+(secretary/defroute "/sign-in" []
+                    (session/put! :current-page #'sign-in-page))
+(secretary/defroute "/sign-up" []
+                    (session/put! :current-page #'sign-up-page))
 
 ;; -------------------------
 ;; Initialize app

@@ -106,7 +106,7 @@
     <orderEntry type="library" name="Leiningen: pathetic:0.5.0" level="project" />
     <orderEntry type="library" name="Leiningen: pjstadig/humane-test-output:0.8.1" level="project" />
     <orderEntry type="library" name="Leiningen: prone:1.1.2" level="project" />
-    <orderEntry type="library" name="Leiningen: reagent-forms:0.5.25" level="project" />
+    <orderEntry type="library" name="Leiningen: reagent-forms:0.5.28" level="project" />
     <orderEntry type="library" name="Leiningen: reagent-utils:0.2.0" level="project" />
     <orderEntry type="library" name="Leiningen: reagent:0.6.0" level="project" />
     <orderEntry type="library" name="Leiningen: ring-cors:0.1.8" level="project" />
