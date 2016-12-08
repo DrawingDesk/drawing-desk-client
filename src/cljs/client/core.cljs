@@ -174,7 +174,7 @@
 
 (defn ^:export update-event [args id]
   (let [new-events (mapv (fn [item]
-                          (if (= (str (:sync-id item)) (:sync-id args))
+                          (if (= (:sync-id item) (:sync-id args))
                             (assoc item :disabled (-> args :data :disabled))
                             item)) (:events @state))]
     (swap! state assoc :sync 0)
